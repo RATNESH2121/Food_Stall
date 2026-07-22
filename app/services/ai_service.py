@@ -11,7 +11,7 @@ if settings.GEMINI_API_KEY:
 else:
     logger.warning("GEMINI_API_KEY is missing. AI features will fallback.")
 
-def get_model(model_name="gemini-1.5-flash"):
+def get_model(model_name="gemini-2.5-flash"):
     return genai.GenerativeModel(model_name)
 
 async def generate_completion(prompt: str, system_instruction: str = None) -> str:
@@ -20,7 +20,7 @@ async def generate_completion(prompt: str, system_instruction: str = None) -> st
         if not settings.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY missing")
             
-        model = genai.GenerativeModel("gemini-1.5-flash", system_instruction=system_instruction)
+        model = genai.GenerativeModel("gemini-2.5-flash", system_instruction=system_instruction)
         response = await model.generate_content_async(prompt)
         return response.text.strip()
     except Exception as e:
@@ -34,7 +34,7 @@ async def generate_json_structured(prompt: str, system_instruction: str = None) 
             raise ValueError("GEMINI_API_KEY missing")
             
         model = genai.GenerativeModel(
-            "gemini-1.5-flash", 
+            "gemini-2.5-flash", 
             system_instruction=system_instruction,
             generation_config={"response_mime_type": "application/json"}
         )
