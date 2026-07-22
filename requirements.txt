@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+motor
+pydantic[email]
+pydantic-settings
+passlib[bcrypt]
+PyJWT
+python-dotenv
+httpx
+google-generativeai  
+ 

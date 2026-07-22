@@ -1,0 +1,224 @@
+from app.database import whatsapp_state_collection, stall_collection, menu_collection, order_collection
+from app.services.whatsapp_service import send_whatsapp_message, send_whatsapp_interactive_buttons
+from app.services.order_service import place_order
+from app.schemas.order import OrderCreate, OrderItem
+from datetime import datetime
+from bson import ObjectId
+import re
+
+# States
+STATE_IDLE = "IDLE"
+STATE_AWAIT_STALL_MENU = "AWAIT_STALL_MENU"
+STATE_AWAIT_STALL_ORDER = "AWAIT_STALL_ORDER"
+STATE_AWAIT_ITEM = "AWAIT_ITEM"
+STATE_AWAIT_QTY = "AWAIT_QTY"
+STATE_AWAIT_TIME = "AWAIT_TIME"
+STATE_AWAIT_CONFIRM = "AWAIT_CONFIRM"
+
+async def get_state(phone_number: str):
+    record = await whatsapp_state_collection.find_one({"phone_number": phone_number})
+    if record:
+        return record
+    return {"phone_number": phone_number, "state": STATE_IDLE, "data": {}}
+
+async def update_state(phone_number: str, state: str, data: dict = None):
+    update_fields = {"state": state}
+    if data is not None:
+        update_fields["data"] = data
+    await whatsapp_state_collection.update_one(
+        {"phone_number": phone_number},
+        {"$set": update_fields},
+        upsert=True
+    )
+
+async def clear_state(phone_number: str):
+    await update_state(phone_number, STATE_IDLE, {})
+
+async def handle_conversation(student: dict, text: str):
+    phone = student["phone_number"]
+    text = text.strip()
+    state_record = await get_state(phone)
+    state = state_record.get("state", STATE_IDLE)
+    data = state_record.get("data", {})
+
+    # Global Commands
+    lower_text = text.lower()
+    if lower_text in ["hi", "hello", "menu", "start"]:
+        await clear_state(phone)
+        return await send_main_menu(phone)
+        
+    if lower_text.startswith("cancel "):
+        order_id = text.split(" ")[1].strip().upper()
+        order = await order_collection.find_one({"order_id": order_id, "student_id": student["id"]})
+        if not order:
+            await send_whatsapp_message(phone, f"Order {order_id} not found or you don't have permission.")
+            return
+        if order["status"] in ["Booked", "Preparing"]:
+            await order_collection.update_one({"_id": order["_id"]}, {"$set": {"status": "Cancelled"}})
+            await send_whatsapp_message(phone, f"Order {order_id} Cancelled Successfully ✅")
+        else:
+            await send_whatsapp_message(phone, f"Order {order_id} cannot be cancelled as it is {order['status']}.")
+        return
+
+    if lower_text.startswith("track "):
+        order_id = text.split(" ")[1].strip().upper()
+        order = await order_collection.find_one({"order_id": order_id, "student_id": student["id"]})
+        if not order:
+            await send_whatsapp_message(phone, f"Order {order_id} not found.")
+            return
+        await send_whatsapp_message(phone, f"📦 *Order {order_id}*\nStatus: {order['status']}\nPickup Time: {order['pickup_time']}")
+        return
+
+    # State Machine
+    if state == STATE_IDLE:
+        if text == "1":
+            await show_stalls(phone)
+            await send_whatsapp_message(phone, "Type '2' to view a menu or '3' to order.")
+        elif text == "2":
+            await send_whatsapp_message(phone, "Please reply with the Stall Number (e.g. 1) or Name to view its menu.")
+            await update_state(phone, STATE_AWAIT_STALL_MENU, data)
+        elif text == "3":
+            await send_whatsapp_message(phone, "Please reply with the Stall Number (e.g. 1) or Name to order from.")
+            await update_state(phone, STATE_AWAIT_STALL_ORDER, data)
+        elif text == "4":
+            await send_whatsapp_message(phone, "Reply with 'Track ORDXXXX' to track your order.")
+        elif text == "5":
+            await send_whatsapp_message(phone, "Help: You can type 'Hi' to start over, 'Cancel ORDXXXX' to cancel, or 'Track ORDXXXX' to track.")
+        else:
+            await send_main_menu(phone)
+
+    elif state == STATE_AWAIT_STALL_MENU:
+        stall = await find_stall(text)
+        if not stall:
+            await send_whatsapp_message(phone, "Stall not found. Please try again or type 'Hi' to restart.")
+            return
+        await show_menu(phone, stall)
+        await clear_state(phone)
+
+    elif state == STATE_AWAIT_STALL_ORDER:
+        stall = await find_stall(text)
+        if not stall:
+            await send_whatsapp_message(phone, "Stall not found. Please try again.")
+            return
+        await show_menu(phone, stall)
+        data["stall_id"] = str(stall["_id"])
+        await update_state(phone, STATE_AWAIT_ITEM, data)
+        await send_whatsapp_message(phone, "What would you like to order? Reply with the exact item name or ID (if listed).")
+
+    elif state == STATE_AWAIT_ITEM:
+        stall_id = data.get("stall_id")
+        # Try exact or contains
+        menu_item = await menu_collection.find_one({
+            "stall_id": stall_id, 
+            "item_name": {"$regex": text, "$options": "i"}
+        })
+        if not menu_item:
+            await send_whatsapp_message(phone, "Item not found in this stall's menu. Please check spelling and try again.")
+            return
+        if not menu_item.get("is_available", True):
+            await send_whatsapp_message(phone, "Sorry, this item is currently unavailable.")
+            return
+            
+        data["item"] = {
+            "menu_item_id": str(menu_item["_id"]),
+            "item_name": menu_item["item_name"],
+            "price": menu_item["price"]
+        }
+        await update_state(phone, STATE_AWAIT_QTY, data)
+        await send_whatsapp_message(phone, f"How many {menu_item['item_name']} would you like? (Enter a number)")
+
+    elif state == STATE_AWAIT_QTY:
+        if not text.isdigit():
+            await send_whatsapp_message(phone, "Please enter a valid number for quantity.")
+            return
+        qty = int(text)
+        if qty <= 0:
+            await send_whatsapp_message(phone, "Quantity must be greater than 0.")
+            return
+            
+        data["item"]["quantity"] = qty
+        await update_state(phone, STATE_AWAIT_TIME, data)
+        await send_whatsapp_message(phone, "When would you like to pick it up? (e.g., 1:00 PM)")
+
+    elif state == STATE_AWAIT_TIME:
+        data["pickup_time"] = text
+        await update_state(phone, STATE_AWAIT_CONFIRM, data)
+        item = data["item"]
+        total = item["price"] * item["quantity"]
+        data["total"] = total
+        
+        msg = f"Order Summary:\n{item['quantity']}x {item['item_name']}\nTotal: ₹{total}\nPickup: {text}\n\nConfirm?"
+        buttons = [
+            {"id": "confirm_yes", "title": "Yes"},
+            {"id": "confirm_no", "title": "No"}
+        ]
+        await send_whatsapp_interactive_buttons(phone, msg, buttons)
+
+    elif state == STATE_AWAIT_CONFIRM:
+        if lower_text == "yes" or lower_text == "confirm_yes":
+            # Place Order
+            try:
+                order_data = OrderCreate(
+                    stall_id=data["stall_id"],
+                    items=[OrderItem(**data["item"])],
+                    pickup_date=datetime.now().strftime("%Y-%m-%d"),
+                    pickup_time=data["pickup_time"]
+                )
+                order = await place_order(student["id"], order_data)
+                await send_whatsapp_message(phone, f"✅ Order Confirmed!\nYour Order ID is *{order['order_id']}*.\nTotal: ₹{order['total_amount']}\nWe will notify you when it's ready.")
+            except Exception as e:
+                await send_whatsapp_message(phone, f"Failed to place order: {str(e)}")
+        else:
+            await send_whatsapp_message(phone, "Order cancelled. Type 'Hi' to start again.")
+            
+        await clear_state(phone)
+
+async def send_main_menu(phone: str):
+    msg = """*Welcome to LPU Food Assistant* 🍔
+
+Choose an option by replying with the number:
+1️⃣ View Food Stalls
+2️⃣ View Menu
+3️⃣ Place Order
+4️⃣ Track Order
+5️⃣ Help"""
+    await send_whatsapp_message(phone, msg)
+
+async def show_stalls(phone: str):
+    cursor = stall_collection.find({"is_open": True})
+    stalls = await cursor.to_list(length=100)
+    if not stalls:
+        await send_whatsapp_message(phone, "No food stalls are currently open.")
+        return
+        
+    msg = "*Open Food Stalls:*\n"
+    for idx, s in enumerate(stalls, 1):
+        msg += f"{idx}. {s['stall_name']}\n"
+    await send_whatsapp_message(phone, msg)
+
+async def find_stall(query: str):
+    # Try exact match or partial match on name
+    stall = await stall_collection.find_one({"stall_name": {"$regex": f"^{query}$", "$options": "i"}})
+    if stall: return stall
+    
+    # If they passed a number (e.g., 1), we find all and index
+    if query.isdigit():
+        cursor = stall_collection.find({"is_open": True})
+        stalls = await cursor.to_list(length=100)
+        idx = int(query) - 1
+        if 0 <= idx < len(stalls):
+            return stalls[idx]
+    
+    return None
+
+async def show_menu(phone: str, stall: dict):
+    cursor = menu_collection.find({"stall_id": str(stall["_id"]), "is_available": True})
+    items = await cursor.to_list(length=100)
+    if not items:
+        await send_whatsapp_message(phone, f"{stall['stall_name']} has no menu items right now.")
+        return
+        
+    msg = f"*{stall['stall_name']} Menu:*\n"
+    for item in items:
+        msg += f"- {item['item_name']} (₹{item['price']})\n"
+    await send_whatsapp_message(phone, msg)
