@@ -70,6 +70,22 @@ async def get_student_orders(student_id: str):
         orders.append(doc)
     return orders
 
+async def get_vendor_orders(vendor_id: str):
+    # First, get the stall owned by this vendor
+    stall = await stall_collection.find_one({"owner_id": vendor_id})
+    if not stall:
+        return []
+        
+    stall_id_str = str(stall["_id"])
+    
+    orders = []
+    # We find orders where stall_id matches
+    cursor = order_collection.find({"stall_id": stall_id_str}).sort("created_at", -1)
+    async for doc in cursor:
+        doc["id"] = str(doc.pop("_id"))
+        orders.append(doc)
+    return orders
+
 async def get_order_by_id(order_id: str, student_id: str = None):
     query = {"order_id": order_id}
     if student_id:

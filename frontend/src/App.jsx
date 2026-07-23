@@ -23,6 +23,12 @@ import MenuManager from './pages/admin/MenuManager';
 import OrderManager from './pages/admin/OrderManager';
 import Reports from './pages/admin/Reports';
 
+// Vendor Pages
+import VendorDashboard from './pages/vendor/VendorDashboard';
+import MyStall from './pages/vendor/MyStall';
+import MyMenu from './pages/vendor/MyMenu';
+import VendorOrders from './pages/vendor/VendorOrders';
+
 function App() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -45,6 +51,15 @@ function App() {
             <Route path="orders" element={<MyOrders />} />
             <Route path="orders/:id" element={<OrderDetails />} />
             <Route path="profile" element={<Profile />} />
+          </Route>
+          
+          {/* Vendor Protected Routes */}
+          <Route path="/vendor" element={<ProtectedRoute allowedRoles={['vendor']} />}>
+            <Route index element={<Navigate to="/vendor/dashboard" replace />} />
+            <Route path="dashboard" element={<VendorDashboard />} />
+            <Route path="mystall" element={<MyStall />} />
+            <Route path="mymenu" element={<MyMenu />} />
+            <Route path="orders" element={<VendorOrders />} />
           </Route>
 
           {/* Admin Protected Routes */}

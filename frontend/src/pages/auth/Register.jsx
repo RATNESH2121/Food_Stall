@@ -53,6 +53,17 @@ export default function Register() {
             error={errors.password}
           />
 
+          <div className="flex flex-col space-y-1">
+            <label className="text-sm font-medium text-slate-700">I am a...</label>
+            <select
+              {...registerField("role")}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="student">Student (Customer)</option>
+              <option value="vendor">Stall Vendor (Owner)</option>
+            </select>
+          </div>
+
           <Button type="submit" className="w-full mt-6">
             Register
           </Button>

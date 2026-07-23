@@ -6,6 +6,7 @@ class StudentCreate(BaseModel):
     full_name: str = Field(..., description="Full name of the student")
     phone_number: str = Field(..., description="Contact phone number")
     password: str = Field(..., min_length=6, description="Password (min 6 chars)")
+    role: str = Field(default="student", description="Role of the user: student, vendor, or district_admin")
 
 class StudentLogin(BaseModel):
     registration_number: str
@@ -16,3 +17,4 @@ class StudentResponse(BaseModel):
     registration_number: str
     full_name: str
     phone_number: str
+    role: str = "student"

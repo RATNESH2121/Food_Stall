@@ -25,8 +25,11 @@ export const AuthProvider = ({ children }) => {
         const { access_token, student } = response.data.data;
         localStorage.setItem('token', access_token);
         
-        // Simple heuristic for admin login in Day 3
-        const role = registration_number === 'admin' ? 'district_admin' : 'student';
+        let role = student.role || 'student';
+        if (registration_number === 'admin') {
+          role = 'district_admin';
+        }
+        
         const userData = { ...student, role };
         
         localStorage.setItem('user', JSON.stringify(userData));

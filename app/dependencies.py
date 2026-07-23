@@ -28,6 +28,16 @@ async def get_current_student(token: str = Depends(oauth2_scheme)):
         
         # Convert ObjectId to string for Pydantic
         student["id"] = str(student["_id"])
+        
+        # Ensure role exists (default to student for legacy data)
+        if "role" not in student:
+            student["role"] = "student"
+            
         return student
     except Exception:
         raise credentials_exception
+
+async def get_current_vendor(user: dict = Depends(get_current_student)):
+    if user.get("role") != "vendor" and user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Not enough permissions. Vendor role required.")
+    return user

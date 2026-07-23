@@ -7,6 +7,7 @@ class StallBase(BaseModel):
     opening_time: str
     closing_time: str
     is_open: bool = True
+    owner_id: Optional[str] = None
 
 class StallCreate(StallBase):
     pass
