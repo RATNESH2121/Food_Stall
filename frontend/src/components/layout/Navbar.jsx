@@ -14,7 +14,7 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <Link to={(user?.role === 'admin' || user?.role === 'district_admin') ? '/district_admin/dashboard' : '/student/dashboard'} className="flex-shrink-0 flex items-center">
+            <Link to={(user?.role === 'admin' || user?.role === 'district_admin') ? '/district_admin/dashboard' : user?.role === 'vendor' ? '/vendor/dashboard' : '/student/dashboard'} className="flex-shrink-0 flex items-center">
               <span className="font-bold text-xl text-blue-600">SmartFood</span>
             </Link>
           </div>

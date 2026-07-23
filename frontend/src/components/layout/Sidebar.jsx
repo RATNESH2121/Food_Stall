@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Store, MenuSquare, ShoppingBag, UserCircle, LogOut, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Store, MenuSquare, ShoppingBag, UserCircle, LogOut, BarChart3, UtensilsCrossed } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Sidebar({ role }) {
@@ -20,7 +20,14 @@ export default function Sidebar({ role }) {
     { name: 'Reports', path: '/district_admin/reports', icon: BarChart3 },
   ];
 
-  const links = (role === 'admin' || role === 'district_admin') ? adminLinks : studentLinks;
+  const vendorLinks = [
+    { name: 'Dashboard', path: '/vendor/dashboard', icon: LayoutDashboard },
+    { name: 'My Stall', path: '/vendor/mystall', icon: Store },
+    { name: 'My Menu', path: '/vendor/mymenu', icon: UtensilsCrossed },
+    { name: 'Orders', path: '/vendor/orders', icon: ShoppingBag },
+  ];
+
+  const links = (role === 'admin' || role === 'district_admin') ? adminLinks : role === 'vendor' ? vendorLinks : studentLinks;
 
   return (
     <div className="w-64 bg-white shadow-sm border-r border-slate-200 h-[calc(100vh-4rem)] flex flex-col">
