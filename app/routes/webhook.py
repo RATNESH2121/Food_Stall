@@ -8,6 +8,7 @@ import json
 router = APIRouter(prefix="/webhook", tags=["WhatsApp Webhook"])
 logger = logging.getLogger(__name__)
 
+@router.get("/")
 @router.get("")
 async def verify_webhook(request: Request):
     """
@@ -24,6 +25,7 @@ async def verify_webhook(request: Request):
         logger.error("Webhook verification failed.")
         raise HTTPException(status_code=403, detail="Verification token mismatch")
 
+@router.post("/")
 @router.post("")
 async def handle_webhook(request: Request):
     """
@@ -56,6 +58,7 @@ async def handle_webhook(request: Request):
     return Response(content="EVENT_RECEIVED", status_code=200)
 
 
+@router.get("/status/")
 @router.get("/status")
 async def webhook_status():
     """
