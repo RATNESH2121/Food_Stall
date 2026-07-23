@@ -3,6 +3,7 @@ from app.config import settings
 from app.services.message_handler import process_webhook_payload
 import logging
 import asyncio
+import json
 
 router = APIRouter(prefix="/webhook", tags=["WhatsApp Webhook"])
 logger = logging.getLogger(__name__)
@@ -28,13 +29,43 @@ async def handle_webhook(request: Request):
     """
     Receives incoming WhatsApp messages.
     """
+    body = await request.body()
+    logger.info(
+        "Webhook POST received: content_type=%s bytes=%s user_agent=%s",
+        request.headers.get("content-type"),
+        len(body),
+        request.headers.get("user-agent"),
+    )
+
     try:
-        payload = await request.json()
-        logger.info(f"Received Webhook Payload: {payload}")
-        
-        # Meta expects a 200 OK immediately, so we process the message in the background
+        payload = json.loads(body.decode("utf-8")) if body else {}
+    except json.JSONDecodeError:
+        logger.warning("Webhook POST had invalid JSON. Raw body preview: %r", body[:500])
+        # Meta may send non-message probes/status payloads during dashboard testing.
+        # Acknowledge them so delivery health is not penalized.
+        return Response(content="EVENT_RECEIVED", status_code=200)
+
+    logger.info("Received Webhook Payload: %s", payload)
+
+    if payload.get("object") == "whatsapp_business_account":
+        # Meta expects a 200 OK immediately, so process the message in the background.
         asyncio.create_task(process_webhook_payload(payload))
-        return Response(content="OK", status_code=200)
-    except Exception as e:
-        logger.error(f"Error handling webhook POST: {e}")
-        return Response(content="Error", status_code=500)
+    else:
+        logger.info("Ignoring webhook payload for object=%s", payload.get("object"))
+
+    return Response(content="EVENT_RECEIVED", status_code=200)
+
+
+@router.get("/status")
+async def webhook_status():
+    """
+    Safe diagnostics endpoint for deployment checks. Does not expose secrets.
+    """
+    return {
+        "ok": True,
+        "webhook_path": "/webhook",
+        "verify_token_configured": bool(settings.WHATSAPP_VERIFY_TOKEN),
+        "whatsapp_token_configured": bool(settings.WHATSAPP_TOKEN),
+        "whatsapp_phone_id_configured": bool(settings.WHATSAPP_PHONE_ID),
+        "gemini_api_key_configured": bool(settings.GEMINI_API_KEY),
+    }
