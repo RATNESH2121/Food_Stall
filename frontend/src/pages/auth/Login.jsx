@@ -9,7 +9,7 @@ export default function Login() {
   const { login } = useAuth();
 
   const onSubmit = (data) => {
-    login(data.registration_number, data.password);
+    login(data.identifier, data.password);
   };
 
   return (
@@ -22,10 +22,10 @@ export default function Login() {
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           <Input
-            label="Registration Number"
-            id="registration_number"
-            {...register("registration_number", { required: "Registration number is required" })}
-            error={errors.registration_number}
+            label="Registration Number / Email"
+            id="identifier"
+            {...register("identifier", { required: "This field is required" })}
+            error={errors.identifier}
           />
 
           <Input

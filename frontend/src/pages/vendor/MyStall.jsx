@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import api from '../../../services/api';
-import { useAuth } from '../../../context/AuthContext';
-import Input from '../../../components/ui/Input';
-import Button from '../../../components/ui/Button';
+import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
+import Input from '../../components/ui/Input';
+import Button from '../../components/ui/Button';
 import toast from 'react-hot-toast';
 
 export default function MyStall() {

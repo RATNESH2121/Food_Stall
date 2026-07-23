@@ -5,8 +5,12 @@ import Input from '../../components/ui/Input';
 import Button from '../../components/ui/Button';
 
 export default function Register() {
-  const { register: registerField, handleSubmit, formState: { errors } } = useForm();
+  const { register: registerField, handleSubmit, watch, formState: { errors } } = useForm({
+    defaultValues: { role: 'student' }
+  });
   const { register } = useAuth();
+  
+  const selectedRole = watch('role');
 
   const onSubmit = (data) => {
     register(data);
@@ -21,17 +25,48 @@ export default function Register() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <Input
-            label="Registration Number"
-            id="registration_number"
-            {...registerField("registration_number", { required: "Registration number is required" })}
-            error={errors.registration_number}
-          />
+          <div className="flex flex-col space-y-1 mb-4">
+            <label className="text-sm font-medium text-slate-700">I am a...</label>
+            <select
+              {...registerField("role")}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="student">Student (Customer)</option>
+              <option value="vendor">Stall Vendor (Owner)</option>
+            </select>
+          </div>
+
+          {selectedRole === 'student' && (
+            <Input
+              label="Registration Number"
+              id="registration_number"
+              {...registerField("registration_number", { required: "Registration number is required" })}
+              error={errors.registration_number}
+            />
+          )}
+
+          {selectedRole === 'vendor' && (
+            <>
+              <Input
+                label="Email Address"
+                id="email"
+                type="email"
+                {...registerField("email", { required: "Email is required" })}
+                error={errors.email}
+              />
+              <Input
+                label="Vendor / Stall Name"
+                id="vendor_name"
+                {...registerField("vendor_name", { required: "Vendor name is required" })}
+                error={errors.vendor_name}
+              />
+            </>
+          )}
           
           <Input
-            label="Full Name"
+            label={selectedRole === 'vendor' ? "Owner Name" : "Full Name"}
             id="full_name"
-            {...registerField("full_name", { required: "Full name is required" })}
+            {...registerField("full_name", { required: "Name is required" })}
             error={errors.full_name}
           />
 
@@ -52,17 +87,6 @@ export default function Register() {
             })}
             error={errors.password}
           />
-
-          <div className="flex flex-col space-y-1">
-            <label className="text-sm font-medium text-slate-700">I am a...</label>
-            <select
-              {...registerField("role")}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="student">Student (Customer)</option>
-              <option value="vendor">Stall Vendor (Owner)</option>
-            </select>
-          </div>
 
           <Button type="submit" className="w-full mt-6">
             Register

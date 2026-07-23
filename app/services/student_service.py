@@ -5,13 +5,25 @@ from app.utils.security import get_password_hash, verify_password, create_access
 from bson import ObjectId
 
 async def register_student(student_data: StudentCreate):
-    # Check if student already exists
-    existing_student = await student_collection.find_one({"registration_number": student_data.registration_number})
-    if existing_student:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Student with this registration number already exists."
-        )
+    # Role-based validation
+    if student_data.role == "vendor":
+        if not student_data.email or not student_data.vendor_name:
+            raise HTTPException(status_code=400, detail="Email and Vendor Name are required for vendors.")
+        
+        existing_vendor = await student_collection.find_one({"email": student_data.email})
+        if existing_vendor:
+            raise HTTPException(status_code=400, detail="Vendor with this email already exists.")
+            
+    else: # student
+        if not student_data.registration_number:
+            raise HTTPException(status_code=400, detail="Registration number is required for students.")
+            
+        existing_student = await student_collection.find_one({"registration_number": student_data.registration_number})
+        if existing_student:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Student with this registration number already exists."
+            )
     
     # Hash password
     student_dict = student_data.model_dump()
@@ -23,17 +35,25 @@ async def register_student(student_data: StudentCreate):
     return {
         "id": str(result.inserted_id),
         "registration_number": student_data.registration_number,
+        "email": student_data.email,
         "full_name": student_data.full_name,
-        "phone_number": student_data.phone_number
+        "phone_number": student_data.phone_number,
+        "role": student_data.role
     }
 
 async def login_student(login_data: StudentLogin):
-    student = await student_collection.find_one({"registration_number": login_data.registration_number})
+    # Find by either registration number OR email
+    student = await student_collection.find_one({
+        "$or": [
+            {"registration_number": login_data.identifier},
+            {"email": login_data.identifier}
+        ]
+    })
     
     if not student or not verify_password(login_data.password, student["password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect registration number or password",
+            detail="Incorrect login credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
         

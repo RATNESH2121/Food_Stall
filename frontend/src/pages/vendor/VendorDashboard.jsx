@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
-import api from '../../../services/api';
+import api from '../../services/api';
 
 export default function VendorDashboard() {
   const { user } = useAuth();

@@ -18,15 +18,15 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  const login = async (registration_number, password) => {
+  const login = async (identifier, password) => {
     try {
-      const response = await api.post('/auth/login', { registration_number, password });
+      const response = await api.post('/auth/login', { identifier, password });
       if (response.data.success) {
         const { access_token, student } = response.data.data;
         localStorage.setItem('token', access_token);
         
         let role = student.role || 'student';
-        if (registration_number === 'admin') {
+        if (identifier === 'admin') {
           role = 'district_admin';
         }
         
