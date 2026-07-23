@@ -13,22 +13,28 @@ async def generate_sample_data():
     
     # 2. Seed Student & Admin
     student = await student_collection.find_one({"registration_number": "123456"})
+    student_pw = get_password_hash("password123")
     if not student:
         await student_collection.insert_one({
             "registration_number": "123456",
             "full_name": "John Doe",
             "phone_number": "9876543210",
-            "password": get_password_hash("password123")
+            "password": student_pw
         })
+    else:
+        await student_collection.update_one({"registration_number": "123456"}, {"$set": {"password": student_pw}})
 
     admin = await student_collection.find_one({"registration_number": "admin"})
+    admin_pw = get_password_hash("admin")
     if not admin:
         await student_collection.insert_one({
             "registration_number": "admin",
             "full_name": "System Admin",
             "phone_number": "0000000000",
-            "password": get_password_hash("admin")
+            "password": admin_pw
         })
+    else:
+        await student_collection.update_one({"registration_number": "admin"}, {"$set": {"password": admin_pw}})
     
     # 3. Seed Stall
     stall = await stall_collection.find_one({"stall_name": "Sanjay's Cafe"})
