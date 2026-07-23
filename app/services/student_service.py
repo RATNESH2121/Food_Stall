@@ -64,7 +64,11 @@ async def login_student(login_data: StudentLogin):
         "token_type": "bearer",
         "student": {
             "id": str(student["_id"]),
-            "registration_number": student["registration_number"],
-            "full_name": student["full_name"],
+            "registration_number": student.get("registration_number"),
+            "email": student.get("email"),
+            "vendor_name": student.get("vendor_name"),
+            "full_name": student.get("full_name", ""),
+            "phone_number": student.get("phone_number", ""),
+            "role": student.get("role", "student"),
         }
     }
