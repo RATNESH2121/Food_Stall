@@ -147,16 +147,38 @@ async def update_order_status(order_id: str, status_data: OrderStatusUpdate):
         
     order = await get_order_by_id(order_id)
     
-    # Send WhatsApp Notification
+    # Send WhatsApp Notification to Student
     try:
         from app.database import student_collection
-        from bson import ObjectId
         from app.services.whatsapp_service import send_whatsapp_message
         
-        student = await student_collection.find_one({"_id": ObjectId(order["student_id"])})
+        student_id_val = order.get("student_id")
+        student = None
+        
+        # Try finding student by ObjectId, string _id, or registration_number
+        try:
+            student = await student_collection.find_one({"_id": ObjectId(student_id_val)})
+        except Exception:
+            pass
+            
+        if not student:
+            student = await student_collection.find_one({"_id": student_id_val})
+            
+        if not student:
+            student = await student_collection.find_one({"registration_number": student_id_val})
+
         if student and student.get("phone_number"):
             phone = student["phone_number"]
-            msg = f"🔔 *Order Update*\nYour order {order_id} is now: *{status_data.status}*"
+            status_text = status_data.status
+            if status_text == "Preparing":
+                msg = f"🧑‍🍳 *Order Update*\nYour order *{order_id}* is now being *Prepared*!"
+            elif status_text == "Ready":
+                msg = f"✅ *Order Ready for Pickup!*\nYour order *{order_id}* is ready. Please pick it up from the stall!"
+            elif status_text == "Completed":
+                msg = f"🎉 *Order Completed*\nThank you for ordering with SmartFood!"
+            else:
+                msg = f"🔔 *Order Update*\nYour order *{order_id}* is now: *{status_text}*"
+
             import asyncio
             asyncio.create_task(send_whatsapp_message(phone, msg))
     except Exception as e:
