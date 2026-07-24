@@ -1,8 +1,9 @@
-from app.database import whatsapp_state_collection, stall_collection, menu_collection, slot_collection
+from app.database import whatsapp_state_collection, stall_collection, menu_collection, slot_collection, order_collection
 from app.services.whatsapp_service import send_whatsapp_message
 from app.services.order_service import place_order
 from app.schemas.order import OrderCreate, OrderItem
 from datetime import datetime, timezone
+from bson import ObjectId
 import logging
 
 logger = logging.getLogger(__name__)
@@ -51,10 +52,11 @@ async def handle_conversation(student: dict, text: str):
         await clear_state(phone)
         msg = (
             "👋 Welcome back!\n\n"
-            "What would you like to do today?\n\n"
+            "What would you like to do?\n\n"
             "1️⃣ Order Food\n\n"
-            "2️⃣ Change Campus\n\n"
-            "3️⃣ Help"
+            "2️⃣ Track My Order\n\n"
+            "3️⃣ Change Campus\n\n"
+            "4️⃣ Help"
         )
         await send_whatsapp_message(phone, msg)
         return
@@ -65,25 +67,29 @@ async def handle_conversation(student: dict, text: str):
 
     # IDLE State
     if state == STATE_IDLE:
-        if text in ["1", "1️⃣"] or "order" in lower_text:
+        if text in ["1", "1️⃣"] or "order food" in lower_text:
             await show_campus_options(phone)
-        elif text in ["2", "2️⃣"] or "campus" in lower_text:
+        elif text in ["2", "2️⃣"] or "track" in lower_text:
+            await show_track_order(phone, student)
+        elif text in ["3", "3️⃣"] or "campus" in lower_text:
             await show_campus_options(phone)
-        elif text in ["3", "3️⃣"] or "help" in lower_text:
+        elif text in ["4", "4️⃣"] or "help" in lower_text:
             msg = (
                 "ℹ️ *SmartFood Help*\n\n"
                 "- Reply *1* to Order Food\n"
-                "- Reply *2* to Select Campus\n"
+                "- Reply *2* to Track My Order\n"
+                "- Reply *3* to Select Campus\n"
                 "- Reply *Hi* anytime to start over"
             )
             await send_whatsapp_message(phone, msg)
         else:
             msg = (
-                "👋 *Welcome back!*\n\n"
-                "What would you like to do today?\n\n"
-                "1️⃣ Order Food\n"
-                "2️⃣ Change Campus\n"
-                "3️⃣ Help"
+                "👋 Welcome back!\n\n"
+                "What would you like to do?\n\n"
+                "1️⃣ Order Food\n\n"
+                "2️⃣ Track My Order\n\n"
+                "3️⃣ Change Campus\n\n"
+                "4️⃣ Help"
             )
             await send_whatsapp_message(phone, msg)
 
@@ -91,7 +97,6 @@ async def handle_conversation(student: dict, text: str):
     elif state == STATE_AWAIT_CAMPUS:
         selected_campus = CAMPUSES.get(text)
         if not selected_campus:
-            # Check if user typed campus name directly
             for c_name in CAMPUSES.values():
                 if c_name.lower() in lower_text:
                     selected_campus = c_name
@@ -117,7 +122,7 @@ async def handle_conversation(student: dict, text: str):
         stalls_summary = []
         msg = f"🏬 *Food Stalls in {selected_campus}:*\n\n"
         for idx, s in enumerate(campus_stalls, 1):
-            msg += f"{idx}. {s['stall_name']}\n"
+            msg += f"{idx}️⃣ {s['stall_name']}\n"
             stalls_summary.append({"id": str(s["_id"]), "name": s["stall_name"]})
 
         msg += "\nReply with the stall number to view menu."
@@ -136,7 +141,6 @@ async def handle_conversation(student: dict, text: str):
                 selected_stall = stalls[idx]
 
         if not selected_stall:
-            # Match by name
             for s in stalls:
                 if s["name"].lower() in lower_text:
                     selected_stall = s
@@ -161,7 +165,7 @@ async def handle_conversation(student: dict, text: str):
         msg = f"📋 *{selected_stall['name']} Menu:*\n\n"
         for idx, item in enumerate(menu_items, 1):
             price_val = int(item['price']) if float(item['price']).is_integer() else item['price']
-            msg += f"{idx}. {item['item_name']} ₹{price_val}\n"
+            msg += f"{idx}️⃣ {item['item_name']} ₹{price_val}\n"
             menu_summary.append({
                 "id": str(item["_id"]),
                 "name": item["item_name"],
@@ -205,17 +209,21 @@ async def handle_conversation(student: dict, text: str):
 
         qty = int(text)
         item = data.get("selected_item", {})
-        total = item.get("price", 0) * qty
+        unit_price = item.get("price", 0)
+        total = unit_price * qty
 
         data["quantity"] = qty
         data["total_amount"] = total
 
         msg = (
-            f"🛒 *Order Summary:*\n\n"
-            f"{item.get('name')} x{qty}\n\n"
-            f"₹{total:.0f}\n\n"
+            f"🛒 *Order Summary*\n\n"
+            f"Item: {item.get('name')}\n"
+            f"Quantity: {qty}\n"
+            f"Price: ₹{unit_price:.0f}\n"
+            f"Total: ₹{total:.0f}\n"
+            f"Estimated Preparation Time: 15 Minutes\n\n"
             f"Confirm Order?\n"
-            f"1️⃣ Yes\n"
+            f"1️⃣ Submit Order\n"
             f"2️⃣ Cancel"
         )
         await update_state(phone, STATE_AWAIT_CONFIRM, data)
@@ -223,7 +231,7 @@ async def handle_conversation(student: dict, text: str):
 
     # ORDER CONFIRMATION State
     elif state == STATE_AWAIT_CONFIRM:
-        if text in ["1", "1️⃣"] or "yes" in lower_text or "confirm" in lower_text:
+        if text in ["1", "1️⃣"] or "yes" in lower_text or "submit" in lower_text or "confirm" in lower_text:
             try:
                 item_info = data.get("selected_item", {})
                 qty = data.get("quantity", 1)
@@ -253,14 +261,19 @@ async def handle_conversation(student: dict, text: str):
 
                 order = await place_order(student["id"], order_data)
 
+                # Set initial status to PENDING_VENDOR
+                await order_collection.update_one(
+                    {"_id": ObjectId(order["id"]) if ObjectId.is_valid(order["id"]) else order["id"]},
+                    {"$set": {"status": "PENDING_VENDOR"}}
+                )
+
                 msg = (
-                    "✅ *Order Placed Successfully*\n\n"
+                    "📝 *Order Request Submitted*\n\n"
                     f"Order ID: {order['order_id']}\n\n"
-                    f"Total: ₹{order['total_amount']:.0f}\n\n"
-                    f"Status: Pending\n\n"
-                    f"Estimated Preparation Time:\n"
-                    f"15 Minutes\n\n"
-                    "Thank you for ordering."
+                    "Your request has been sent to the vendor.\n\n"
+                    "Current Status:\n"
+                    "🟡 Waiting for Vendor Approval\n\n"
+                    "You will receive another WhatsApp message once the vendor accepts or rejects your request."
                 )
                 await send_whatsapp_message(phone, msg)
             except Exception as e:
@@ -273,7 +286,7 @@ async def handle_conversation(student: dict, text: str):
             await send_whatsapp_message(phone, "Order cancelled. Type 'Hi' anytime to start again!")
             await clear_state(phone)
         else:
-            await send_whatsapp_message(phone, "Please reply 1️⃣ for Yes or 2️⃣ for Cancel.")
+            await send_whatsapp_message(phone, "Please reply 1️⃣ for Submit Order or 2️⃣ for Cancel.")
 
 async def show_campus_options(phone: str):
     msg = (
@@ -285,4 +298,39 @@ async def show_campus_options(phone: str):
         "Reply with the option number (1-4)."
     )
     await update_state(phone, STATE_AWAIT_CAMPUS, {})
+    await send_whatsapp_message(phone, msg)
+
+async def show_track_order(phone: str, student: dict):
+    order = await order_collection.find_one({"student_id": student["id"]}, sort=[("created_at", -1)])
+    if not order:
+        await send_whatsapp_message(phone, "No recent order found to track. Type '1' to order food!")
+        return
+
+    stall = await stall_collection.find_one({"_id": ObjectId(order["stall_id"])}) if ObjectId.is_valid(order["stall_id"]) else await stall_collection.find_one({"_id": order["stall_id"]})
+    stall_name = stall.get("stall_name", "Food Stall") if stall else "Food Stall"
+
+    items_summary = ", ".join([f"{i['item_name']} x{i['quantity']}" for i in order.get("items", [])])
+    status_map = {
+        "PENDING_VENDOR": "🟡 Waiting for Vendor Approval",
+        "Booked": "🟡 Waiting for Vendor Approval",
+        "ACCEPTED": "🟢 Accepted by Vendor",
+        "PREPARING": "👨‍🍳 Preparing in kitchen",
+        "Preparing": "👨‍🍳 Preparing in kitchen",
+        "READY": "🎉 Ready for Pickup!",
+        "Ready": "🎉 Ready for Pickup!",
+        "COMPLETED": "✅ Completed",
+        "Completed": "✅ Completed",
+        "REJECTED": "❌ Rejected by Vendor",
+        "Cancelled": "❌ Cancelled"
+    }
+    status_display = status_map.get(order.get("status"), order.get("status"))
+
+    msg = (
+        "📦 *Order Details*\n\n"
+        f"Order ID: {order['order_id']}\n"
+        f"Vendor: {stall_name}\n"
+        f"Items: {items_summary}\n"
+        f"Current Status: {status_display}\n"
+        "Estimated Ready Time: 15 Minutes"
+    )
     await send_whatsapp_message(phone, msg)

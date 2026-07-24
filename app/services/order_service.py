@@ -133,7 +133,7 @@ async def get_all_orders():
     return orders
 
 async def update_order_status(order_id: str, status_data: OrderStatusUpdate):
-    valid_statuses = ["Booked", "Preparing", "Ready", "Completed", "Cancelled"]
+    valid_statuses = ["PENDING_VENDOR", "Booked", "ACCEPTED", "REJECTED", "PREPARING", "Preparing", "READY", "Ready", "COMPLETED", "Completed", "Cancelled"]
     if status_data.status not in valid_statuses:
         raise HTTPException(status_code=400, detail="Invalid status")
         
@@ -149,13 +149,12 @@ async def update_order_status(order_id: str, status_data: OrderStatusUpdate):
     
     # Send WhatsApp Notification to Student
     try:
-        from app.database import student_collection
+        from app.database import student_collection, stall_collection
         from app.services.whatsapp_service import send_whatsapp_message
         
         student_id_val = order.get("student_id")
         student = None
         
-        # Try finding student by ObjectId, string _id, or registration_number
         try:
             student = await student_collection.find_one({"_id": ObjectId(student_id_val)})
         except Exception:
@@ -169,15 +168,44 @@ async def update_order_status(order_id: str, status_data: OrderStatusUpdate):
 
         if student and student.get("phone_number"):
             phone = student["phone_number"]
-            status_text = status_data.status
-            if status_text == "Preparing":
-                msg = f"🧑‍🍳 *Order Update*\nYour order *{order_id}* is now being *Prepared*!"
-            elif status_text == "Ready":
-                msg = f"✅ *Order Ready for Pickup!*\nYour order *{order_id}* is ready. Please pick it up from the stall!"
-            elif status_text == "Completed":
-                msg = f"🎉 *Order Completed*\nThank you for ordering with SmartFood!"
+            status_text = status_data.status.upper()
+            
+            # Fetch stall name
+            stall = await stall_collection.find_one({"_id": ObjectId(order["stall_id"])}) if ObjectId.is_valid(order["stall_id"]) else await stall_collection.find_one({"_id": order["stall_id"]})
+            stall_name = stall.get("stall_name", "Food Stall") if stall else "Food Stall"
+
+            if status_text in ["ACCEPTED"]:
+                msg = (
+                    "✅ Great News!\n\n"
+                    "Your order has been accepted.\n\n"
+                    f"Vendor: {stall_name}\n"
+                    "Status: Preparing 👨‍🍳\n"
+                    "Estimated Ready Time: 15 Minutes"
+                )
+            elif status_text in ["REJECTED"]:
+                msg = (
+                    "❌ Sorry!\n\n"
+                    "Your order could not be accepted.\n\n"
+                    "Reason: Out of Stock\n"
+                    "Please place another order."
+                )
+            elif status_text in ["PREPARING"]:
+                msg = "👨‍🍳 Your food is now being prepared."
+            elif status_text in ["READY"]:
+                msg = (
+                    "🎉 Your order is ready!\n\n"
+                    f"Please collect it from:\n"
+                    f"{stall_name}\n\n"
+                    f"Order ID: {order_id}"
+                )
+            elif status_text in ["COMPLETED"]:
+                msg = (
+                    "✅ Order Completed\n\n"
+                    "Thank you for ordering with SmartFood LPU.\n\n"
+                    "Enjoy your meal!"
+                )
             else:
-                msg = f"🔔 *Order Update*\nYour order *{order_id}* is now: *{status_text}*"
+                msg = f"🔔 *Order Update*\nYour order *{order_id}* is now: *{status_data.status}*"
 
             import asyncio
             asyncio.create_task(send_whatsapp_message(phone, msg))

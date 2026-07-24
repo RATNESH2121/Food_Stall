@@ -1,20 +1,20 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import toast from 'react-hot-toast';
 import { ShoppingBag, RefreshCw, Clock, CheckCircle, XCircle, ChefHat } from 'lucide-react';
 
 const STATUS_COLORS = {
-  Booked: 'bg-blue-100 text-blue-700',
-  Preparing: 'bg-yellow-100 text-yellow-700',
-  Ready: 'bg-emerald-100 text-emerald-700',
-  Completed: 'bg-slate-100 text-slate-700',
-  Cancelled: 'bg-red-100 text-red-700',
-};
-
-const NEXT_STATUS = {
-  Booked: 'Preparing',
-  Preparing: 'Ready',
-  Ready: 'Completed',
+  PENDING_VENDOR: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
+  Booked: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
+  ACCEPTED: 'bg-blue-100 text-blue-800',
+  PREPARING: 'bg-purple-100 text-purple-800',
+  Preparing: 'bg-purple-100 text-purple-800',
+  READY: 'bg-emerald-100 text-emerald-800',
+  Ready: 'bg-emerald-100 text-emerald-800',
+  COMPLETED: 'bg-slate-100 text-slate-800',
+  Completed: 'bg-slate-100 text-slate-800',
+  REJECTED: 'bg-red-100 text-red-800',
+  Cancelled: 'bg-red-100 text-red-800',
 };
 
 export default function VendorOrders() {
@@ -55,14 +55,14 @@ export default function VendorOrders() {
 
   const filteredOrders = filter === 'all'
     ? orders
-    : orders.filter(o => o.status.toLowerCase() === filter);
+    : orders.filter(o => o.status.toLowerCase() === filter.toLowerCase());
 
   const tabs = [
     { id: 'all', label: 'All', count: orders.length },
-    { id: 'booked', label: 'New', count: orders.filter(o => o.status === 'Booked').length },
-    { id: 'preparing', label: 'Preparing', count: orders.filter(o => o.status === 'Preparing').length },
-    { id: 'ready', label: 'Ready', count: orders.filter(o => o.status === 'Ready').length },
-    { id: 'completed', label: 'Completed', count: orders.filter(o => o.status === 'Completed').length },
+    { id: 'pending', label: 'New Requests', count: orders.filter(o => ['PENDING_VENDOR', 'Booked'].includes(o.status)).length },
+    { id: 'preparing', label: 'Preparing', count: orders.filter(o => ['ACCEPTED', 'PREPARING', 'Preparing'].includes(o.status)).length },
+    { id: 'ready', label: 'Ready', count: orders.filter(o => ['READY', 'Ready'].includes(o.status)).length },
+    { id: 'completed', label: 'Completed', count: orders.filter(o => ['COMPLETED', 'Completed'].includes(o.status)).length },
   ];
 
   if (loading) return (
@@ -112,17 +112,17 @@ export default function VendorOrders() {
       ) : (
         <div className="space-y-4">
           {filteredOrders.map(order => (
-            <div key={order.id} className="bg-white border border-slate-200 rounded-xl p-5">
+            <div key={order.id} className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
               <div className="flex items-start justify-between mb-3">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-bold text-slate-900">{order.order_id}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[order.status] || 'bg-slate-100 text-slate-700'}`}>
-                      {order.status}
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[order.status] || 'bg-slate-100 text-slate-700'}`}>
+                      {order.status === 'PENDING_VENDOR' ? '🟡 Pending Approval' : order.status}
                     </span>
                   </div>
                   <p className="text-sm text-slate-500">
-                    Pickup: <strong>{order.pickup_time}</strong>
+                    Student ID: <strong>{order.student_id}</strong>
                   </p>
                   <p className="text-sm text-slate-500 mt-0.5">
                     Placed: {new Date(order.created_at).toLocaleString()}
@@ -136,33 +136,64 @@ export default function VendorOrders() {
                 <div className="space-y-1">
                   {order.items?.map((item, idx) => (
                     <div key={idx} className="flex justify-between text-sm">
-                      <span className="text-slate-700">{item.item_name} × {item.quantity}</span>
+                      <span className="text-slate-700 font-medium">{item.item_name} × {item.quantity}</span>
                       <span className="text-slate-500">₹{(item.price * item.quantity).toFixed(2)}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {NEXT_STATUS[order.status] && (
-                <div className="flex items-center justify-end">
+              {/* Action Buttons Based on Lifecycle State */}
+              <div className="flex items-center justify-end gap-3 border-t border-slate-100 pt-3">
+                {['PENDING_VENDOR', 'Booked'].includes(order.status) && (
+                  <>
+                    <button
+                      onClick={() => handleUpdateStatus(order.order_id, 'REJECTED')}
+                      disabled={updating === order.order_id}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
+                    >
+                      <XCircle className="w-4 h-4" /> Reject
+                    </button>
+                    <button
+                      onClick={() => handleUpdateStatus(order.order_id, 'ACCEPTED')}
+                      disabled={updating === order.order_id}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                    >
+                      <CheckCircle className="w-4 h-4" /> Accept Order
+                    </button>
+                  </>
+                )}
+
+                {order.status === 'ACCEPTED' && (
                   <button
-                    onClick={() => handleUpdateStatus(order.order_id, NEXT_STATUS[order.status])}
+                    onClick={() => handleUpdateStatus(order.order_id, 'PREPARING')}
+                    disabled={updating === order.order_id}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                  >
+                    <ChefHat className="w-4 h-4" /> Mark as Preparing
+                  </button>
+                )}
+
+                {['PREPARING', 'Preparing'].includes(order.status) && (
+                  <button
+                    onClick={() => handleUpdateStatus(order.order_id, 'READY')}
+                    disabled={updating === order.order_id}
+                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                  >
+                    <CheckCircle className="w-4 h-4" /> Mark as Ready
+                  </button>
+                )}
+
+                {['READY', 'Ready'].includes(order.status) && (
+                  <button
+                    onClick={() => handleUpdateStatus(order.order_id, 'COMPLETED')}
                     disabled={updating === order.order_id}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
                   >
-                    {updating === order.order_id ? (
-                      <RefreshCw className="w-4 h-4 animate-spin" />
-                    ) : order.status === 'Booked' ? (
-                      <ChefHat className="w-4 h-4" />
-                    ) : order.status === 'Preparing' ? (
-                      <CheckCircle className="w-4 h-4" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4" />
-                    )}
-                    Mark as {NEXT_STATUS[order.status]}
+                    <CheckCircle className="w-4 h-4" /> Complete Order
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ))}
         </div>

@@ -89,12 +89,15 @@ async def process_incoming_message(phone_number: str, text: str):
             
             # Replying after successful save:
             msg = (
-                "✅ Registration Successful.\n\n"
+                "✅ Registration Successful!\n\n"
                 "Welcome to SmartFood LPU.\n\n"
-                "What would you like to do today?\n\n"
+                "You can now order food from any participating campus food stall.\n\n"
+                "👋 Welcome back!\n\n"
+                "What would you like to do?\n\n"
                 "1️⃣ Order Food\n\n"
-                "2️⃣ Change Campus\n\n"
-                "3️⃣ Help"
+                "2️⃣ Track My Order\n\n"
+                "3️⃣ Change Campus\n\n"
+                "4️⃣ Help"
             )
             await send_whatsapp_message(phone_number, msg)
             return
@@ -103,8 +106,10 @@ async def process_incoming_message(phone_number: str, text: str):
             await update_state(phone_number, "AWAIT_REGISTRATION", {})
             msg = (
                 "🍔 Welcome to SmartFood LPU\n\n"
-                "Before ordering food, please complete a one-time registration.\n\n"
-                "Please enter your LPU Registration Number."
+                "It looks like you're using SmartFood for the first time.\n\n"
+                "To continue, please complete a one-time verification.\n\n"
+                "Please enter your LPU Registration Number.\n\n"
+                "Example:\n12304161"
             )
             await send_whatsapp_message(phone_number, msg)
             return
