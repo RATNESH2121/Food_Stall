@@ -6,6 +6,7 @@ database = client.food_booking_db
 
 # Collections
 student_collection = database.get_collection("students")
+student_profile_collection = database.get_collection("student_profiles")
 stall_collection = database.get_collection("stalls")
 menu_collection = database.get_collection("menu")
 order_collection = database.get_collection("orders")

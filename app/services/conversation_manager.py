@@ -50,10 +50,10 @@ async def handle_conversation(student: dict, text: str):
     if lower_text in ["hi", "hello", "start", "reset", "0"]:
         await clear_state(phone)
         msg = (
-            "👋 *Welcome back!*\n\n"
+            "👋 Welcome back!\n\n"
             "What would you like to do today?\n\n"
-            "1️⃣ Order Food\n"
-            "2️⃣ Change Campus\n"
+            "1️⃣ Order Food\n\n"
+            "2️⃣ Change Campus\n\n"
             "3️⃣ Help"
         )
         await send_whatsapp_message(phone, msg)
