@@ -42,19 +42,14 @@ async def process_incoming_message(phone_number: str, text: str):
     logger.info(f"Received message from {phone_number}: {text}")
     text_clean = text.strip()
     
-    # STEP 1 & STEP 3: Search StudentProfile using phone_number
+    # STEP 1, 2, 3: Search StudentProfile collection using phone_number
     profile = await student_profile_collection.find_one({"phone_number": phone_number})
     if not profile and len(phone_number) > 10:
         last_10 = phone_number[-10:]
         profile = await student_profile_collection.find_one({"phone_number": {"$regex": f"{last_10}$"}})
-        
-    student = await student_collection.find_one({"phone_number": phone_number})
-    if not student and len(phone_number) > 10:
-        last_10 = phone_number[-10:]
-        student = await student_collection.find_one({"phone_number": {"$regex": f"{last_10}$"}})
 
-    # CASE 1: Phone number NOT FOUND
-    if not profile and not student:
+    # CASE 1: Phone number NOT FOUND in StudentProfile collection
+    if not profile:
         state_record = await get_state(phone_number)
         current_state = state_record.get("state")
         
@@ -73,17 +68,22 @@ async def process_incoming_message(phone_number: str, text: str):
             }
             await student_profile_collection.insert_one(profile_doc)
             
-            # Save into student_collection so place_order works seamlessly
-            student_doc = {
-                "registration_number": reg_no,
-                "full_name": f"Student {reg_no}",
-                "phone_number": phone_number,
-                "password": get_password_hash("default123"),
-                "role": "student",
-                "created_at": now
-            }
-            res = await student_collection.insert_one(student_doc)
-            student_doc["id"] = str(res.inserted_id)
+            # Also save/upsert into student_collection so place_order works seamlessly
+            student = await student_collection.find_one({"registration_number": reg_no})
+            if not student:
+                student_doc = {
+                    "registration_number": reg_no,
+                    "full_name": f"Student {reg_no}",
+                    "phone_number": phone_number,
+                    "password": get_password_hash("default123"),
+                    "role": "student",
+                    "created_at": now
+                }
+                res = await student_collection.insert_one(student_doc)
+                student_doc["id"] = str(res.inserted_id)
+            else:
+                await student_collection.update_one({"registration_number": reg_no}, {"$set": {"phone_number": phone_number}})
+                student["id"] = str(student["_id"])
             
             await clear_state(phone_number)
             
@@ -109,9 +109,14 @@ async def process_incoming_message(phone_number: str, text: str):
             await send_whatsapp_message(phone_number, msg)
             return
 
-    # CASE 2: Phone number ALREADY EXISTS
+    # CASE 2: Phone number ALREADY EXISTS in StudentProfile collection
+    student = await student_collection.find_one({"phone_number": phone_number})
     if not student:
-        reg_no = profile.get("registration_number", "UNKNOWN") if profile else "UNKNOWN"
+        reg_no = profile.get("registration_number", "UNKNOWN")
+        student = await student_collection.find_one({"registration_number": reg_no})
+        
+    if not student:
+        reg_no = profile.get("registration_number", "UNKNOWN")
         student_doc = {
             "registration_number": reg_no,
             "full_name": f"Student {reg_no}",
