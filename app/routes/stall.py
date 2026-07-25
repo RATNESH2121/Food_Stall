@@ -19,9 +19,11 @@ async def create_stall(stall_data: StallCreate, current_vendor: dict = Depends(g
     result = await stall_service.create_stall(stall_data)
     return success_response("Stall created successfully", result)
 
+from typing import Optional
+
 @router.get("")
-async def get_stalls():
-    result = await stall_service.get_all_stalls()
+async def get_stalls(campus: Optional[str] = None):
+    result = await stall_service.get_all_stalls(campus=campus)
     return success_response("Stalls retrieved successfully", result)
 
 @router.put("/{stall_id}")

@@ -3,6 +3,7 @@ from typing import Optional
 
 class StallBase(BaseModel):
     stall_name: str
+    campus: Optional[str] = "Academic Block"
     description: Optional[str] = None
     opening_time: str
     closing_time: str
@@ -14,6 +15,7 @@ class StallCreate(StallBase):
 
 class StallUpdate(BaseModel):
     stall_name: Optional[str] = None
+    campus: Optional[str] = None
     description: Optional[str] = None
     opening_time: Optional[str] = None
     closing_time: Optional[str] = None

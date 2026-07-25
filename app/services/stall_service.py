@@ -11,9 +11,12 @@ async def create_stall(stall_data: StallCreate):
     stall_dict.pop("_id", None)
     return stall_dict
 
-async def get_all_stalls():
+async def get_all_stalls(campus: str = None):
     stalls = []
-    cursor = stall_collection.find({})
+    query = {}
+    if campus:
+        query["campus"] = campus
+    cursor = stall_collection.find(query)
     async for document in cursor:
         document["id"] = str(document.pop("_id"))
         stalls.append(document)

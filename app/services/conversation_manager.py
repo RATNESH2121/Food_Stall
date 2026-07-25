@@ -108,11 +108,22 @@ async def handle_conversation(student: dict, text: str):
 
         data["campus"] = selected_campus
         
-        # Fetch open stalls from MongoDB
-        stalls = await stall_collection.find({"is_open": True}).to_list(100)
-        campus_stalls = [s for s in stalls if s.get("campus", selected_campus) == selected_campus]
+        # Query MongoDB strictly for open stalls matching selected campus
+        campus_stalls = await stall_collection.find({
+            "campus": {"$regex": f"^{selected_campus}$", "$options": "i"},
+            "is_open": True
+        }).to_list(100)
+
+        # Fallback query if exact campus name varies (e.g., CSE Block vs Academic Block)
         if not campus_stalls:
-            campus_stalls = stalls # Fallback so user always sees open stalls from MongoDB
+            if selected_campus == "Academic Block":
+                campus_stalls = await stall_collection.find({"campus": {"$in": ["Academic Block", "CSE Block"]}, "is_open": True}).to_list(100)
+            elif selected_campus == "BH Area":
+                campus_stalls = await stall_collection.find({"campus": {"$in": ["BH Area", "Boys Hostel"]}, "is_open": True}).to_list(100)
+            elif selected_campus == "Girls Hostel":
+                campus_stalls = await stall_collection.find({"campus": {"$in": ["Girls Hostel", "GH Area"]}, "is_open": True}).to_list(100)
+            elif selected_campus == "Uni Mall":
+                campus_stalls = await stall_collection.find({"campus": {"$in": ["Uni Mall", "Uni Mall Area"]}, "is_open": True}).to_list(100)
 
         if not campus_stalls:
             await send_whatsapp_message(phone, f"No open food stalls found in {selected_campus} right now.")
