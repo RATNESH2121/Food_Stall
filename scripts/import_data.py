@@ -5,25 +5,15 @@ from dotenv import load_dotenv
 load_dotenv()
 MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb+srv://ratnesh:ratnesh@cluster1.no5yhoc.mongodb.net/food_booking_db?appName=Cluster1')
 
-async def main():
+async def test():
     client = AsyncIOMotorClient(MONGODB_URL)
     db = client.food_booking_db
-    stalls = db.stalls
     
-    academic_stalls = ['LovelyBakeStudio', 'South City Cafe', 'Nescafe', 'Basant Icecream', 'DimSum Box', 'Gupta Canteen', 'Govinda Fresh Bites', 'Burger House']
-    bh_stalls = ['Tripti', 'Pakka Adda', 'Hungry Panda', 'Hangouts', 'Food Factory', 'Canteen_BH6']
-    gh_stalls = ['Amritsar zaika', 'Zaika']
-    
-    for name in academic_stalls:
-        await stalls.update_many({'stall_name': name}, {'$set': {'campus': 'Academic Block', 'is_open': True}})
-        
-    for name in bh_stalls:
-        await stalls.update_many({'stall_name': name}, {'$set': {'campus': 'BH Area', 'is_open': True}})
-        
-    for name in gh_stalls:
-        await stalls.update_many({'stall_name': name}, {'$set': {'campus': 'Girls Hostel', 'is_open': True}})
-        
-    print('SUCCESS: Updated campus locations for all 16 stalls!')
+    for c_name in ['Academic Block', 'BH Area', 'Girls Hostel', 'Uni Mall']:
+        stalls = await db.stalls.find({'campus': {'$regex': f'^{c_name}$', '$options': 'i'}, 'is_open': True}).to_list(100)
+        print(f"=== {c_name} === ({len(stalls)} Stalls)")
+        for s in stalls:
+            print(f"  - {s.get('stall_name')}")
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(test())
