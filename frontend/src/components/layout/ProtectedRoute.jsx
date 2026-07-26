@@ -1,6 +1,5 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import Sidebar from './Sidebar';
 
 export default function ProtectedRoute({ allowedRoles }) {
   const { user } = useAuth();
@@ -13,12 +12,7 @@ export default function ProtectedRoute({ allowedRoles }) {
     return <Navigate to={`/${user.role}/dashboard`} replace />;
   }
 
-  return (
-    <div className="flex">
-      <Sidebar role={user.role} />
-      <div className="flex-1 p-8 overflow-y-auto h-[calc(100vh-4rem)]">
-        <Outlet />
-      </div>
-    </div>
-  );
+  // Auth-only: just render the matched child route.
+  // Layout (Sidebar + Navbar) is handled by AppLayout in App.jsx.
+  return <Outlet />;
 }
