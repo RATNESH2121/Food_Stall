@@ -57,6 +57,13 @@ async def place_order(student_id: str, order_data: OrderCreate):
     order_dict["created_at"] = datetime.now(timezone.utc)
     order_dict["updated_at"] = datetime.now(timezone.utc)
 
+    # Attach student's phone_number directly to order for reliable notifications
+    student_doc = await student_collection.find_one({"_id": ObjectId(student_id)}) if ObjectId.is_valid(student_id) else await student_collection.find_one({"_id": student_id})
+    if not student_doc:
+        student_doc = await student_collection.find_one({"registration_number": student_id})
+    if student_doc and student_doc.get("phone_number"):
+        order_dict["phone_number"] = student_doc["phone_number"]
+
     result = await order_collection.insert_one(order_dict)
     order_dict["id"] = str(result.inserted_id)
     order_dict.pop("_id", None)
@@ -149,25 +156,30 @@ async def update_order_status(order_id: str, status_data: OrderStatusUpdate):
     
     # Send WhatsApp Notification to Student
     try:
-        from app.database import student_collection, stall_collection
+        from app.database import student_collection, student_profile_collection, stall_collection
         from app.services.whatsapp_service import send_whatsapp_message
         
-        student_id_val = order.get("student_id")
-        student = None
+        phone = order.get("phone_number")
         
-        try:
-            student = await student_collection.find_one({"_id": ObjectId(student_id_val)})
-        except Exception:
-            pass
-            
-        if not student:
-            student = await student_collection.find_one({"_id": student_id_val})
-            
-        if not student:
-            student = await student_collection.find_one({"registration_number": student_id_val})
+        if not phone:
+            student_id_val = order.get("student_id")
+            student = None
+            try:
+                student = await student_collection.find_one({"_id": ObjectId(student_id_val)}) if ObjectId.is_valid(student_id_val) else await student_collection.find_one({"_id": student_id_val})
+            except Exception:
+                pass
+                
+            if not student:
+                student = await student_collection.find_one({"registration_number": student_id_val})
+                
+            if student and student.get("phone_number"):
+                phone = student["phone_number"]
+            elif student and student.get("registration_number"):
+                prof = await student_profile_collection.find_one({"registration_number": student["registration_number"]})
+                if prof:
+                    phone = prof.get("phone_number")
 
-        if student and student.get("phone_number"):
-            phone = student["phone_number"]
+        if phone:
             status_text = status_data.status.upper()
             
             # Fetch stall name

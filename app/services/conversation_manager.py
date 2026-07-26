@@ -272,10 +272,10 @@ async def handle_conversation(student: dict, text: str):
 
                 order = await place_order(student["id"], order_data)
 
-                # Set initial status to PENDING_VENDOR
+                # Set initial status to PENDING_VENDOR and store active phone number for notifications
                 await order_collection.update_one(
                     {"_id": ObjectId(order["id"]) if ObjectId.is_valid(order["id"]) else order["id"]},
-                    {"$set": {"status": "PENDING_VENDOR"}}
+                    {"$set": {"status": "PENDING_VENDOR", "phone_number": phone}}
                 )
 
                 msg = (
