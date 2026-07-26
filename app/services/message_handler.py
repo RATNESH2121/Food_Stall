@@ -136,4 +136,7 @@ async def process_incoming_message(phone_number: str, text: str):
     else:
         student["id"] = str(student["_id"])
 
+    # CRITICAL FIX: Always override student["phone_number"] with active incoming webhook phone_number
+    student["phone_number"] = phone_number
+
     await handle_conversation(student, text_clean)
