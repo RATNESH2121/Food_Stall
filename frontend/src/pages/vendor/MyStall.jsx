@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import Input from '../../components/ui/Input';
@@ -13,6 +13,7 @@ export default function MyStall() {
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     stall_name: '',
+    campus: 'Academic Block',
     description: '',
     opening_time: '09:00',
     closing_time: '22:00',
@@ -32,6 +33,7 @@ export default function MyStall() {
           setStall(myStall);
           setFormData({
             stall_name: myStall.stall_name,
+            campus: myStall.campus || 'Academic Block',
             description: myStall.description || '',
             opening_time: myStall.opening_time,
             closing_time: myStall.closing_time,
@@ -95,6 +97,23 @@ export default function MyStall() {
             placeholder="e.g. Ratnesh's Snack Corner"
             className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1">Campus Location *</label>
+          <select
+            name="campus"
+            value={formData.campus}
+            onChange={handleChange}
+            required
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            <option value="Academic Block">Academic Block</option>
+            <option value="BH Area">BH Area (Boys Hostel)</option>
+            <option value="Girls Hostel">Girls Hostel</option>
+            <option value="Uni Mall">Uni Mall</option>
+          </select>
+          <p className="text-xs text-slate-400 mt-1">This determines where WhatsApp & Web students find your stall.</p>
         </div>
 
         <div>

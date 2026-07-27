@@ -1,5 +1,5 @@
 from fastapi import HTTPException, status
-from app.database import order_collection, slot_collection, menu_collection, stall_collection
+from app.database import order_collection, slot_collection, menu_collection, stall_collection, student_collection
 from app.schemas.order import OrderCreate, OrderStatusUpdate
 from bson import ObjectId
 from bson.errors import InvalidId

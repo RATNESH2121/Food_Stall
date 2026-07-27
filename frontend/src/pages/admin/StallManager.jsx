@@ -39,12 +39,13 @@ export default function StallManager() {
     setEditingStall(stall);
     if (stall) {
       setValue('stall_name', stall.stall_name);
+      setValue('campus', stall.campus || 'Academic Block');
       setValue('description', stall.description);
       setValue('opening_time', stall.opening_time);
       setValue('closing_time', stall.closing_time);
       setValue('is_open', stall.is_open);
     } else {
-      reset({ stall_name: '', description: '', opening_time: '', closing_time: '', is_open: true });
+      reset({ stall_name: '', campus: 'Academic Block', description: '', opening_time: '', closing_time: '', is_open: true });
     }
     setIsModalOpen(true);
   };
@@ -87,10 +88,15 @@ export default function StallManager() {
         </Button>
       </div>
 
-      <Table headers={["Name", "Description", "Timings", "Status", "Actions"]}>
+      <Table headers={["Name", "Campus Location", "Description", "Timings", "Status", "Actions"]}>
         {stalls.map((stall) => (
           <tr key={stall.id}>
             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{stall.stall_name}</td>
+            <td className="px-6 py-4 whitespace-nowrap text-sm">
+              <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg text-xs font-semibold">
+                {stall.campus || 'Academic Block'}
+              </span>
+            </td>
             <td className="px-6 py-4 text-sm text-slate-500">{stall.description}</td>
             <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{stall.opening_time} - {stall.closing_time}</td>
             <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -109,6 +115,19 @@ export default function StallManager() {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingStall ? "Edit Stall" : "Add New Stall"}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
           <Input label="Stall Name" id="stall_name" {...register("stall_name", { required: true })} />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Campus Location *</label>
+            <select
+              id="campus"
+              {...register("campus", { required: true })}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+            >
+              <option value="Academic Block">Academic Block</option>
+              <option value="BH Area">BH Area (Boys Hostel)</option>
+              <option value="Girls Hostel">Girls Hostel</option>
+              <option value="Uni Mall">Uni Mall</option>
+            </select>
+          </div>
           <Input label="Description" id="description" {...register("description")} />
           <div className="grid grid-cols-2 gap-4">
             <Input label="Opening Time" id="opening_time" {...register("opening_time", { required: true })} />
