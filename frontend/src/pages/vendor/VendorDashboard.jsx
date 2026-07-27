@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
@@ -39,9 +39,9 @@ export default function VendorDashboard() {
     fetchData();
   }, [user.id]);
 
-  const pendingOrders = orders.filter(o => ['Booked', 'Preparing'].includes(o.status)).length;
-  const completedOrders = orders.filter(o => o.status === 'Completed').length;
-  const totalRevenue = orders.filter(o => o.status === 'Completed').reduce((sum, o) => sum + (o.total_amount || 0), 0);
+  const pendingOrders = orders.filter(o => ['Booked', 'Preparing', 'Ready', 'PENDING_VENDOR', 'ACCEPTED', 'PREPARING', 'READY'].includes(o.status)).length;
+  const completedOrders = orders.filter(o => ['Completed', 'COMPLETED'].includes(o.status)).length;
+  const totalRevenue = orders.filter(o => ['Completed', 'COMPLETED'].includes(o.status)).reduce((sum, o) => sum + (o.total_amount || 0), 0);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
