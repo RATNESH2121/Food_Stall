@@ -219,8 +219,7 @@ async def update_order_status(order_id: str, status_data: OrderStatusUpdate):
             else:
                 msg = f"🔔 *Order Update*\nYour order *{order_id}* is now: *{status_data.status}*"
 
-            import asyncio
-            asyncio.create_task(send_whatsapp_message(phone, msg))
+            await send_whatsapp_message(phone, msg)
     except Exception as e:
         import logging
         logging.getLogger(__name__).error(f"Failed to send whatsapp notification: {e}")
