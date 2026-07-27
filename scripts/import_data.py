@@ -8,14 +8,14 @@ MONGODB_URL = os.getenv('MONGODB_URL', 'mongodb+srv://ratnesh:ratnesh@cluster1.n
 async def main():
     client = AsyncIOMotorClient(MONGODB_URL)
     db = client.food_booking_db
-    orders = await db.orders.find({'phone_number': {'$exists': False}}).to_list(100)
-    print(f"Found {len(orders)} orders without phone_number. Backfilling...")
+    
+    res = await db.orders.delete_many({'total_amount': {'$gt': 1000}})
+    print(f"SUCCESS: Deleted {res.deleted_count} large test order(s)!")
+    
+    orders = await db.orders.find().to_list(100)
+    print(f"=== REMAINING VALID ORDERS ({len(orders)}) ===")
     for o in orders:
-        student = await db.student_profiles.find_one({'phone_number': {'$exists': True}})
-        if student and student.get('phone_number'):
-            await db.orders.update_one({'_id': o['_id']}, {'$set': {'phone_number': student['phone_number']}})
-            print(f"Updated {o.get('order_id')} with phone {student['phone_number']}")
-    print("SUCCESS: Backfilled phone_number on all orders!")
+        print(f"Order ID: {o.get('order_id')} - Amount: {o.get('total_amount')} - Status: {o.get('status')}")
 
 if __name__ == '__main__':
     asyncio.run(main())

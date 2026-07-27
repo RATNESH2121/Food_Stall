@@ -214,8 +214,8 @@ async def handle_conversation(student: dict, text: str):
 
     # QUANTITY Selection State
     elif state == STATE_AWAIT_QTY:
-        if not text.isdigit() or int(text) <= 0:
-            await send_whatsapp_message(phone, "Please enter a valid quantity (number greater than 0).")
+        if not text.isdigit() or int(text) <= 0 or int(text) > 50:
+            await send_whatsapp_message(phone, "Please enter a valid quantity (1 to 50).")
             return
 
         qty = int(text)
