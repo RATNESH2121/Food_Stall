@@ -234,13 +234,13 @@ async def get_dashboard_stats():
     today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
     
     todays_orders = await order_collection.count_documents({"created_at": {"$gte": today_start}})
-    completed_orders = await order_collection.count_documents({"status": "Completed"})
-    cancelled_orders = await order_collection.count_documents({"status": "Cancelled"})
-    pending_orders = await order_collection.count_documents({"status": {"$in": ["Booked", "Preparing", "Ready"]}})
+    completed_orders = await order_collection.count_documents({"status": {"$in": ["Completed", "COMPLETED"]}})
+    cancelled_orders = await order_collection.count_documents({"status": {"$in": ["Cancelled", "REJECTED"]}})
+    pending_orders = await order_collection.count_documents({"status": {"$in": ["Booked", "Preparing", "Ready", "PENDING_VENDOR", "ACCEPTED", "PREPARING", "READY"]}})
     
     # Aggregate total revenue (only completed orders)
     pipeline = [
-        {"$match": {"status": "Completed"}},
+        {"$match": {"status": {"$in": ["Completed", "COMPLETED"]}}},
         {"$group": {"_id": None, "total_revenue": {"$sum": "$total_amount"}}}
     ]
     cursor = order_collection.aggregate(pipeline)
